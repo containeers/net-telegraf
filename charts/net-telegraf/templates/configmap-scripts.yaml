@@ -1,0 +1,18 @@
+{{- if .Values.customScripts.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "net-telegraf.fullname" . }}-scripts
+  labels:
+    {{- include "net-telegraf.labels" . | nindent 4 }}
+  {{- with .Values.customScripts.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  {{- range $name, $content := .Values.customScripts.scripts }}
+  {{ $name }}: |
+{{ $content | indent 4 }}
+  {{- end }}
+{{- end }}
+

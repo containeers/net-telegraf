@@ -1,0 +1,92 @@
+# ✅ WORKING EXAMPLE - Custom Scripts with net-telegraf
+# This configuration has been verified to properly mount scripts into the deployment
+#
+# Usage:
+#   helm install net-telegraf charts/net-telegraf -f examples/WORKING-EXAMPLE.yaml
+#
+# Then verify:
+#   kubectl exec -it $(kubectl get pod -l app.kubernetes.io/name=telegraf -o jsonpath='{.items[0].metadata.name}') -- ls -la /etc/telegraf/scripts
+#   kubectl exec -it $(kubectl get pod -l app.kubernetes.io/name=telegraf -o jsonpath='{.items[0].metadata.name}') -- /etc/telegraf/scripts/hello.sh
+
+# Step 1: Enable custom scripts and define them
+customScripts:
+  enabled: true
+  mountPath: /etc/telegraf/scripts
+  scripts:
+    hello.sh: |
+      #!/bin/bash
+      echo "hello_metric,source=custom value=42"
+
+# Step 2: Configure Telegraf
+telegraf:
+  config:
+    agent:
+      interval: "10s"
+    
+    outputs:
+      - prometheus_client:
+          listen: ":9273"
+    
+    inputs:
+      # Use your custom script
+      - exec:
+          commands: ["/etc/telegraf/scripts/hello.sh"]
+          data_format: "influx"
+          interval: "30s"
+      
+      # Standard system metrics
+      - cpu:
+          percpu: true
+          totalcpu: true
+      - mem: {}
+  
+  # Step 3: Mount the scripts using 'volumes' and 'mountPoints'
+  # IMPORTANT: Replace 'net-telegraf' with your actual release name
+  volumes:
+    - name: custom-scripts
+      configMap:
+        name: net-telegraf-scripts  # Pattern: <release-name>-scripts
+        defaultMode: 0755           # Make scripts executable
+  
+  mountPoints:
+    - name: custom-scripts
+      mountPath: /etc/telegraf/scripts
+      readOnly: true
+
+  # Resources
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+# Enable ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+# ============================================================================
+# KEY POINTS:
+# ============================================================================
+# 
+# 1. The InfluxData Telegraf chart uses 'volumes' and 'mountPoints'
+#    NOT 'extraVolumes' and 'extraVolumeMounts'
+#
+# 2. The ConfigMap name follows the pattern: <release-name>-scripts
+#    - If you use: helm install my-app charts/net-telegraf
+#    - ConfigMap will be: my-app-scripts
+#    - Update the 'name' in volumes accordingly
+#
+# 3. The defaultMode: 0755 makes scripts executable (493 in decimal)
+#
+# 4. To find your ConfigMap name before deploying:
+#    helm template YOUR-RELEASE charts/net-telegraf -f values.yaml | grep "name:.*-scripts"
+#
+# 5. Verify deployment after installation:
+#    kubectl get configmap | grep scripts
+#    kubectl describe deployment <release-name>
+#    kubectl exec -it <pod-name> -- ls -la /etc/telegraf/scripts
+# ============================================================================
+

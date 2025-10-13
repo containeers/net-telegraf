@@ -1,0 +1,63 @@
+# Minimal example for loading a custom script into Telegraf
+# 
+# Usage:
+#   helm install my-telegraf ./charts/net-telegraf -f examples/values-simple-script.yaml
+#
+# Then verify:
+#   kubectl get configmap my-telegraf-net-telegraf-scripts
+#   kubectl exec -it <pod> -- ls -la /etc/telegraf/scripts
+#   kubectl exec -it <pod> -- cat /etc/telegraf/scripts/hello.sh
+
+# Step 1: Define your custom script
+customScripts:
+  enabled: true
+  mountPath: /etc/telegraf/scripts
+  scripts:
+    # Example: Simple shell script that outputs a metric
+    hello.sh: |
+      #!/bin/bash
+      echo "hello_metric,source=custom value=42"
+
+# Step 2: Configure Telegraf to mount and use the script
+telegraf:
+  config:
+    agent:
+      interval: "10s"
+    
+    outputs:
+      - prometheus_client:
+          listen: ":9273"
+    
+    inputs:
+      # Use your custom script
+      - exec:
+          commands:
+            - "/etc/telegraf/scripts/hello.sh"
+          timeout: "5s"
+          interval: "30s"
+          data_format: "influx"
+      
+      # Standard system metrics
+      - cpu:
+          percpu: true
+          totalcpu: true
+      - mem: {}
+  
+  # Step 3: Mount the ConfigMap into the pod
+  # IMPORTANT: Replace 'my-telegraf' with your actual release name
+  volumes:
+    - name: custom-scripts
+      configMap:
+        name: my-telegraf-net-telegraf-scripts
+        defaultMode: 0755
+  
+  mountPoints:
+    - name: custom-scripts
+      mountPath: /etc/telegraf/scripts
+      readOnly: true
+
+# Optional: Enable ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: true
+  interval: 30s
+

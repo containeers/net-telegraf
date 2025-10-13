@@ -1,0 +1,66 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your release is named {{ .Release.Name }}.
+
+Telegraf has been deployed with Prometheus output enabled.
+
+📊 Metrics Endpoint:
+  Port: 9273
+  Path: /metrics
+
+🔍 To access metrics locally, run:
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "net-telegraf.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 9273:9273
+
+Then visit http://127.0.0.1:9273/metrics in your browser.
+
+{{- if .Values.serviceMonitor.enabled }}
+
+✅ ServiceMonitor is ENABLED
+  Prometheus Operator will automatically discover and scrape metrics.
+  
+  Verify ServiceMonitor:
+    kubectl get servicemonitor {{ include "net-telegraf.fullname" . }} -n {{ .Values.serviceMonitor.namespace | default .Release.Namespace }}
+{{- else }}
+
+ℹ️  ServiceMonitor is DISABLED
+  To enable automatic Prometheus Operator integration, upgrade with:
+    helm upgrade {{ .Release.Name }} {{ .Chart.Name }} --set serviceMonitor.enabled=true
+  
+  Alternatively, configure Prometheus to scrape the service directly:
+    Service: {{ .Release.Name }}-telegraf
+    Port: 9273
+    Path: /metrics
+{{- end }}
+
+📝 View Telegraf logs:
+  kubectl logs -f -l "app.kubernetes.io/name={{ include "net-telegraf.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -n {{ .Release.Namespace }}
+
+{{- if .Values.customScripts.enabled }}
+
+📜 Custom Scripts ENABLED
+  Scripts are loaded from ConfigMap: {{ include "net-telegraf.fullname" . }}-scripts
+  Mount path: {{ .Values.customScripts.mountPath }}
+  
+  ⚠️  IMPORTANT: To use the scripts, you must configure volumes and mountPoints:
+  
+  telegraf:
+    volumes:
+      - name: custom-scripts
+        configMap:
+          name: {{ include "net-telegraf.fullname" . }}-scripts
+          defaultMode: 0755
+    mountPoints:
+      - name: custom-scripts
+        mountPath: {{ .Values.customScripts.mountPath }}
+        readOnly: true
+  
+  View scripts in the ConfigMap:
+    kubectl get configmap {{ include "net-telegraf.fullname" . }}-scripts -n {{ .Release.Namespace }} -o yaml
+{{- end }}
+
+📚 For more information, visit:
+  https://github.com/influxdata/telegraf
+
+Happy monitoring! 🚀
+

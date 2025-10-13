@@ -1,0 +1,55 @@
+# Helm
+*.tgz
+charts/*/charts/
+charts/*/*.lock
+.helm/
+
+# Dependencies
+charts/net-telegraf/charts/
+charts/net-telegraf/Chart.lock
+
+# Development values files
+**/values-local.yaml
+**/values-dev.yaml
+**/values-override.yaml
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+.*.swp
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+.project
+.classpath
+.settings/
+*.sublime-*
+
+# Editor backups
+*~
+.*.sw[a-z]
+*.bak
+
+# Logs
+*.log
+logs/
+
+# Test outputs
+test-results/
+coverage/
+

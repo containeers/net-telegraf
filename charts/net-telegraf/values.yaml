@@ -1,0 +1,230 @@
+# Default values for net-telegraf overlay chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into the telegraf chart.
+
+telegraf:
+  # Override values for the telegraf subchart
+  replicaCount: 1
+
+  image:
+    repo: "telegraf"
+    tag: "1.32.0"
+    pullPolicy: IfNotPresent
+
+  # Telegraf configuration
+  config:
+    agent:
+      interval: "10s"
+      round_interval: true
+      metric_batch_size: 1000
+      metric_buffer_limit: 10000
+      collection_jitter: "0s"
+      flush_interval: "10s"
+      flush_jitter: "0s"
+      precision: ""
+      hostname: "$HOSTNAME"
+      omit_hostname: false
+    
+    # Output plugins - Prometheus metrics endpoint
+    outputs:
+      - prometheus_client:
+          listen: ":9273"
+          metric_version: 2
+          export_timestamp: true
+          string_as_label: true
+    
+    # Input plugins - network monitoring focused
+    inputs:
+      - cpu:
+          percpu: true
+          totalcpu: true
+          collect_cpu_time: false
+          report_active: false
+      - disk:
+          ignore_fs:
+            - "tmpfs"
+            - "devtmpfs"
+            - "devfs"
+            - "iso9660"
+            - "overlay"
+            - "aufs"
+            - "squashfs"
+      - diskio: {}
+      - mem: {}
+      - net: {}
+      - system: {}
+      - processes: {}
+      - swap: {}
+      - netstat: {}
+      - kernel: {}
+
+  # Environment variables
+  env:
+    - name: HOSTNAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+
+  # Resource limits
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+  # Service configuration
+  service:
+    enabled: true
+    type: ClusterIP
+    annotations: {}
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+  # Security context
+  securityContext: {}
+
+  # Service account
+  serviceAccount:
+    create: true
+    annotations: {}
+    name: ""
+
+  # Persistence for metrics storage
+  persistence:
+    enabled: false
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 8Gi
+
+  # Volumes to mount (for custom scripts)
+  # When customScripts.enabled is true, configure this to mount the scripts ConfigMap
+  # The ConfigMap name follows the pattern: <release-name>-net-telegraf-scripts
+  # You can use 'helm template' to see the actual name before deploying
+  volumes: []
+  #   - name: custom-scripts
+  #     configMap:
+  #       name: my-release-net-telegraf-scripts
+  #       defaultMode: 0755
+
+  # Mount points for volumes
+  # When customScripts.enabled is true, configure this to mount the scripts
+  mountPoints: []
+  #   - name: custom-scripts
+  #     mountPath: /etc/telegraf/scripts
+  #     readOnly: true
+
+# Custom scripts configuration
+# Use this to add custom parser scripts, exec scripts, or processor scripts
+customScripts:
+  # Enable custom scripts ConfigMap
+  enabled: false
+  
+  # Annotations for the ConfigMap
+  annotations: {}
+  
+  # Mount path for scripts in the container
+  mountPath: /etc/telegraf/scripts
+  
+  # Scripts to include in the ConfigMap
+  # Key is the filename, value is the script content
+  scripts: {}
+    # parser.py: |
+    #   #!/usr/bin/env python3
+    #   import sys
+    #   # Your custom parser logic here
+    #   for line in sys.stdin:
+    #     # Process and output metrics
+    #     print(line)
+    # 
+    # processor.sh: |
+    #   #!/bin/bash
+    #   # Your custom processor logic here
+    #   cat
+
+# ServiceMonitor configuration for Prometheus Operator
+# Uncomment and configure the settings below to enable ServiceMonitor
+serviceMonitor:
+  # Enable ServiceMonitor creation
+  enabled: true
+  
+  # # Namespace where ServiceMonitor should be created
+  # # If not set, it will be created in the same namespace as the release
+  # namespace: ""
+  
+  # # Additional labels for the ServiceMonitor
+  # # Important: Match the label selector of your Prometheus instance
+  # # For kube-prometheus-stack, this is typically 'release: prometheus'
+  # additionalLabels: {}
+  #   # release: prometheus
+  #   # prometheus: kube-prometheus
+  
+  # # Additional annotations for the ServiceMonitor
+  # annotations: {}
+  
+  # Service port name to scrape
+  port: http
+  
+  # Path to scrape metrics from
+  path: /metrics
+  
+  # Scrape interval
+  interval: 30s
+  
+  # # Scrape timeout (maximum time for a scrape request)
+  # scrapeTimeout: 10s
+  
+  # # HTTP scheme to use for scraping (http or https)
+  # scheme: http
+  
+  # # TLS configuration for scraping
+  # tlsConfig: {}
+  #   # insecureSkipVerify: true
+  #   # caFile: /etc/prometheus/secrets/ca.crt
+  #   # certFile: /etc/prometheus/secrets/cert.crt
+  #   # keyFile: /etc/prometheus/secrets/key.key
+  
+  # # Bearer token file for authentication
+  # bearerTokenFile: ""
+  
+  # # Relabel configs to apply to samples before ingestion
+  # # Useful for adding or modifying labels on scraped metrics
+  # relabelings: []
+  #   # - sourceLabels: [__meta_kubernetes_pod_node_name]
+  #   #   targetLabel: node
+  #   #   action: replace
+  #   # - sourceLabels: [__meta_kubernetes_namespace]
+  #   #   targetLabel: kubernetes_namespace
+  #   #   action: replace
+  
+  # # MetricRelabelConfigs to apply to samples before ingestion
+  # # Useful for filtering or transforming metrics
+  # metricRelabelings: []
+  #   # - sourceLabels: [__name__]
+  #   #   regex: 'go_.*'
+  #   #   action: drop  # Drop Go runtime metrics
+  
+  # # Namespace selector for ServiceMonitor
+  # namespaceSelector: {}
+  #   # matchNames:
+  #   #   - default
+  
+  # # Target labels to transfer from service to scraped metrics
+  # targetLabels: []
+  #   # - app
+  #   # - environment
+
+# Name overrides
+nameOverride: ""
+fullnameOverride: ""

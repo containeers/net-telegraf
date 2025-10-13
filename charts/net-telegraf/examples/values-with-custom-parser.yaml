@@ -1,0 +1,185 @@
+# Example values file demonstrating how to use custom parser scripts with Telegraf
+# This example shows how to:
+# 1. Define custom scripts (parser, processor, etc.)
+# 2. Mount them into the Telegraf container
+# 3. Reference them in your Telegraf configuration
+
+telegraf:
+  replicaCount: 1
+
+  image:
+    repo: "telegraf"
+    tag: "1.32.0"
+    pullPolicy: IfNotPresent
+
+  # Telegraf configuration with custom parser
+  config:
+    agent:
+      interval: "10s"
+      round_interval: true
+      metric_batch_size: 1000
+      metric_buffer_limit: 10000
+      collection_jitter: "0s"
+      flush_interval: "10s"
+      flush_jitter: "0s"
+      precision: ""
+      hostname: "$HOSTNAME"
+      omit_hostname: false
+    
+    # Output plugins
+    outputs:
+      - prometheus_client:
+          listen: ":9273"
+          metric_version: 2
+          export_timestamp: true
+          string_as_label: true
+    
+    # Input plugins with custom parser
+    inputs:
+      - cpu:
+          percpu: true
+          totalcpu: true
+      - mem: {}
+      - disk: {}
+      - net: {}
+      
+      # Example: Using execd input with a custom parser script
+      - execd:
+          command:
+            - "/etc/telegraf/scripts/custom_parser.py"
+          signal: "none"
+          restart_delay: "10s"
+          data_format: "influx"
+      
+      # Example: Using exec input with a custom script
+      - exec:
+          commands:
+            - "/etc/telegraf/scripts/metrics_collector.sh"
+          timeout: "5s"
+          interval: "30s"
+          data_format: "json"
+          json_name_key: "name"
+          tag_keys:
+            - "host"
+            - "service"
+
+  # Environment variables
+  env:
+    - name: HOSTNAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+
+  # Mount the custom scripts ConfigMap
+  # IMPORTANT: The ConfigMap name must match: <release-name>-net-telegraf-scripts
+  # For example, if you install with: helm install my-telegraf ./charts/net-telegraf
+  # Then the ConfigMap name will be: my-telegraf-net-telegraf-scripts
+  volumes:
+    - name: custom-scripts
+      configMap:
+        name: my-telegraf-net-telegraf-scripts  # Replace 'my-telegraf' with your release name
+        defaultMode: 0755  # Make scripts executable
+
+  mountPoints:
+    - name: custom-scripts
+      mountPath: /etc/telegraf/scripts
+      readOnly: true
+
+  # Resource limits
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+  # Service configuration
+  service:
+    enabled: true
+    type: ClusterIP
+
+  serviceAccount:
+    create: true
+
+# Custom scripts configuration
+customScripts:
+  # Enable custom scripts ConfigMap creation
+  enabled: true
+  
+  # Mount path for scripts in the container
+  mountPath: /etc/telegraf/scripts
+  
+  # Define your custom scripts here
+  scripts:
+    # Example Python parser script
+    custom_parser.py: |
+      #!/usr/bin/env python3
+      import sys
+      import json
+      import time
+      
+      def parse_and_output_metrics():
+          """
+          Example custom parser that reads data and outputs Telegraf metrics
+          in InfluxDB line protocol format
+          """
+          while True:
+              try:
+                  # Read input data (could be from a file, API, etc.)
+                  # This is just an example - replace with your actual logic
+                  
+                  # Output metrics in InfluxDB line protocol format
+                  # Format: measurement,tag1=value1,tag2=value2 field1=value1,field2=value2 timestamp
+                  timestamp = int(time.time() * 1000000000)  # nanoseconds
+                  
+                  metric = f"custom_metric,host={sys.argv[1] if len(sys.argv) > 1 else 'localhost'} value=1 {timestamp}"
+                  print(metric)
+                  sys.stdout.flush()
+                  
+                  time.sleep(10)  # Sleep for 10 seconds
+              except Exception as e:
+                  print(f"Error: {e}", file=sys.stderr)
+                  time.sleep(10)
+      
+      if __name__ == "__main__":
+          parse_and_output_metrics()
+    
+    # Example Bash metrics collector script
+    metrics_collector.sh: |
+      #!/bin/bash
+      # Example script that collects custom metrics and outputs JSON
+      
+      # Collect some custom metrics (replace with your actual logic)
+      cpu_temp=$(sensors 2>/dev/null | grep -oP 'Core 0.*?\+\K[0-9.]+' | head -1 || echo "0")
+      custom_value=$(echo $RANDOM % 100 | bc)
+      
+      # Output JSON format
+      cat <<EOF
+      {
+        "name": "custom_metrics",
+        "host": "${HOSTNAME}",
+        "service": "custom_collector",
+        "cpu_temperature": ${cpu_temp:-0},
+        "custom_value": ${custom_value}
+      }
+      EOF
+    
+    # Example processor script
+    custom_processor.sh: |
+      #!/bin/bash
+      # Example processor that transforms metrics
+      # Reads from stdin and outputs to stdout
+      
+      while IFS= read -r line; do
+        # Process the metric (example: add a tag)
+        echo "$line,processed=true"
+      done
+
+# ServiceMonitor configuration
+serviceMonitor:
+  enabled: true
+  port: http
+  path: /metrics
+  interval: 30s
+
