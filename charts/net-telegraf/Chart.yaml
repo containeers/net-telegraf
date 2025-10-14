@@ -3,7 +3,7 @@ name: net-telegraf
 description: An overlay Helm chart for Telegraf with Prometheus output for network monitoring
 type: application
 version: 0.1.0
-appVersion: "1.32.0"
+appVersion: "1.36.1"
 
 dependencies:
   - name: telegraf

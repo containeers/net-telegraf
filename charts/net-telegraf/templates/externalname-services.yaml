@@ -1,0 +1,31 @@
+{{- if .Values.routers.enabled }}
+{{- range .Values.routers.devices }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  {{- with .labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ExternalName
+  externalName: {{ .externalName | required (printf "externalName is required for router %s" .name) }}
+  {{- with .ports }}
+  ports:
+  {{- range . }}
+  - name: {{ .name }}
+    port: {{ .port }}
+    {{- with .protocol }}
+    protocol: {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+

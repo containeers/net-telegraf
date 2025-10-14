@@ -225,6 +225,33 @@ serviceMonitor:
   #   # - app
   #   # - environment
 
+# Router ExternalName Services
+# Create Kubernetes ExternalName services for network devices
+routers:
+  enabled: false
+  
+  # Minimal configuration - only name and externalName required
+  devices: []
+    # - name: router-1
+    #   externalName: 192.168.1.1
+    # 
+    # - name: router-2
+    #   externalName: router2.company.com
+    #   labels:
+    #     location: datacenter-1
+    #     vendor: cisco
+    # 
+    # - name: router-3
+    #   externalName: 10.20.1.1
+    #   labels:
+    #     location: branch-office
+    #   annotations:
+    #     description: "Branch router"
+    #   ports:  # Optional - for documentation only
+    #     - name: snmp
+    #       port: 161
+    #       protocol: UDP
+
 # Name overrides
 nameOverride: ""
 fullnameOverride: ""

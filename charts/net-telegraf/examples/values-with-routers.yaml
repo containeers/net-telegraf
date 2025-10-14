@@ -1,0 +1,243 @@
+# Example: Using ExternalName Services for Router Monitoring
+# 
+# This example shows how to:
+# 1. Define routers as Kubernetes ExternalName services
+# 2. Monitor them with SNMP and ping
+# 3. Store credentials securely
+#
+# Deploy with:
+#   kubectl create secret generic snmp-credentials --from-literal=community-string='your-snmp-community'
+#   helm install net-telegraf charts/net-telegraf -f examples/values-with-routers.yaml
+
+# Enable router ExternalName services
+routers:
+  enabled: true
+  devices:
+    # Core Router 1 - Using IP address
+    - name: router-core-1
+      externalName: 192.168.1.1
+      labels:
+        router-type: core
+        location: datacenter-1
+        vendor: cisco
+        model: catalyst-9300
+        environment: production
+      annotations:
+        description: "Core router in datacenter 1"
+        owner: "network-team@company.com"
+      ports:
+        - name: snmp
+          port: 161
+          protocol: UDP
+        - name: ssh
+          port: 22
+          protocol: TCP
+        - name: https
+          port: 443
+          protocol: TCP
+    
+    # Edge Router 2 - Using DNS name
+    - name: router-edge-2
+      externalName: router2.company.com
+      labels:
+        router-type: edge
+        location: datacenter-2
+        vendor: juniper
+        model: mx204
+        environment: production
+      annotations:
+        description: "Edge router in datacenter 2"
+        owner: "network-team@company.com"
+      # Using default ports (snmp, ssh, http, https)
+    
+    # Branch Router 3
+    - name: router-branch-3
+      externalName: 10.20.30.1
+      labels:
+        router-type: branch
+        location: branch-office-ny
+        vendor: cisco
+        model: isr-4331
+        environment: production
+      annotations:
+        description: "Branch office router - New York"
+    
+    # Distribution Switch
+    - name: switch-dist-1
+      externalName: 192.168.1.10
+      labels:
+        device-type: switch
+        switch-type: distribution
+        location: datacenter-1
+        vendor: cisco
+        model: catalyst-9500
+        environment: production
+      annotations:
+        description: "Distribution switch datacenter 1"
+    
+    # Firewall
+    - name: firewall-perimeter
+      externalName: 192.168.100.1
+      labels:
+        device-type: firewall
+        location: dmz
+        vendor: paloalto
+        model: pa-5220
+        environment: production
+      annotations:
+        description: "Perimeter firewall"
+
+# Telegraf configuration
+telegraf:
+  config:
+    agent:
+      interval: "30s"
+      round_interval: true
+      flush_interval: "30s"
+      precision: "1s"
+    
+    # Prometheus output
+    outputs:
+      - prometheus_client:
+          listen: ":9273"
+          metric_version: 2
+          export_timestamp: true
+          string_as_label: true
+          # Expire metrics after 5 minutes if device becomes unreachable
+          expiration_interval: "5m"
+    
+    # Input plugins
+    inputs:
+      # SNMP monitoring for all routers
+      # Note: Short names work within the same namespace due to ndots:5
+      - snmp:
+          agents:
+            - "router-core-1"
+            - "router-edge-2"
+            - "router-branch-3"
+            - "switch-dist-1"
+            - "firewall-perimeter"
+          
+          version: 2
+          community: "${SNMP_COMMUNITY}"
+          timeout: "10s"
+          retries: 3
+          
+          # System information
+          field:
+            - name: "hostname"
+              oid: "RFC1213-MIB::sysName.0"
+              is_tag: true
+            - name: "uptime"
+              oid: "DISMAN-EVENT-MIB::sysUpTimeInstance"
+            - name: "description"
+              oid: "SNMPv2-MIB::sysDescr.0"
+              is_tag: true
+          
+          # Interface statistics
+          table:
+            - name: "interface"
+              oid: "IF-MIB::ifTable"
+              field:
+                - name: "ifDescr"
+                  oid: "IF-MIB::ifDescr"
+                  is_tag: true
+                - name: "ifSpeed"
+                  oid: "IF-MIB::ifSpeed"
+                - name: "ifInOctets"
+                  oid: "IF-MIB::ifInOctets"
+                - name: "ifOutOctets"
+                  oid: "IF-MIB::ifOutOctets"
+                - name: "ifInErrors"
+                  oid: "IF-MIB::ifInErrors"
+                - name: "ifOutErrors"
+                  oid: "IF-MIB::ifOutErrors"
+                - name: "ifOperStatus"
+                  oid: "IF-MIB::ifOperStatus"
+      
+      # Ping monitoring for reachability
+      - ping:
+          urls:
+            - "router-core-1"
+            - "router-edge-2"
+            - "router-branch-3"
+            - "switch-dist-1"
+            - "firewall-perimeter"
+          count: 3
+          ping_interval: 5.0
+          timeout: 10.0
+          [inputs.ping.tags]
+            monitoring_type: "reachability"
+      
+      # HTTP response check (for devices with web interface)
+      - http_response:
+          urls:
+            - "https://router-core-1"
+            - "https://firewall-perimeter"
+          response_timeout: "5s"
+          method: "GET"
+          follow_redirects: false
+          insecure_skip_verify: true  # For self-signed certs
+          [inputs.http_response.tags]
+            monitoring_type: "web_interface"
+      
+      # Standard system metrics from Telegraf pod itself
+      - cpu:
+          percpu: false
+          totalcpu: true
+      - mem: {}
+      - disk:
+          ignore_fs: ["tmpfs", "devtmpfs", "devfs", "overlay", "squashfs"]
+  
+  # Environment variables - load SNMP community from Secret
+  env:
+    - name: SNMP_COMMUNITY
+      valueFrom:
+        secretKeyRef:
+          name: snmp-credentials
+          key: community-string
+    - name: HOSTNAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+  
+  # Resource limits
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 200m
+    limits:
+      memory: 1Gi
+      cpu: 1000m
+  
+  # Service configuration
+  service:
+    enabled: true
+    type: ClusterIP
+  
+  # Pod annotations
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9273"
+    prometheus.io/path: "/metrics"
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels:
+    # Uncomment and adjust based on your Prometheus setup
+    # release: prometheus
+  path: /metrics
+  port: http
+  
+  # Add relabeling to include pod information
+  relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_node_name]
+      targetLabel: node
+      action: replace
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+      action: replace
+

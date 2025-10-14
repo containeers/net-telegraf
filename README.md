@@ -233,6 +233,13 @@ The chart can be configured by overriding values in the `values.yaml` file. All 
 | `serviceMonitor.additionalLabels` | Additional labels for ServiceMonitor | `{}` |
 | `serviceMonitor.relabelings` | Relabel configs | `[]` |
 | `serviceMonitor.metricRelabelings` | Metric relabel configs | `[]` |
+| `routers.enabled` | Enable ExternalName services for routers | `false` |
+| `routers.devices` | List of router/network device definitions | `[]` |
+| `routers.devices[].name` | Router service name (required) | - |
+| `routers.devices[].externalName` | Router IP or DNS name (required) | - |
+| `routers.devices[].labels` | Labels for the router service | `{}` |
+| `routers.devices[].annotations` | Annotations for the router service | `{}` |
+| `routers.devices[].ports` | Port definitions (optional, for documentation) | `[]` |
 | `customScripts.enabled` | Enable custom scripts ConfigMap | `false` |
 | `customScripts.mountPath` | Mount path for scripts in container | `/etc/telegraf/scripts` |
 | `customScripts.scripts` | Map of script names to content | `{}` |
@@ -321,6 +328,54 @@ telegraf:
       memory: 1Gi
       cpu: 1000m
 ```
+
+## Router Management with ExternalName Services
+
+**NEW**: Monitor network devices (routers, switches, firewalls) using Kubernetes ExternalName services instead of hardcoding IP addresses.
+
+### Quick Example
+
+Define routers in your values file:
+
+```yaml
+routers:
+  enabled: true
+  devices:
+    - name: router-core-1
+      externalName: 192.168.1.1  # IP or DNS name
+      labels:
+        router-type: core
+        location: datacenter-1
+    
+    - name: router-edge-2
+      externalName: router2.company.com
+      labels:
+        router-type: edge
+        location: datacenter-2
+```
+
+Reference them in Telegraf config by short name:
+
+```yaml
+telegraf:
+  config:
+    inputs:
+      - snmp:
+          agents:
+            - "router-core-1"
+            - "router-edge-2"
+```
+
+**Benefits:**
+- ✅ Use short names like `router-1` (Kubernetes ndots:5 auto-resolves)
+- ✅ Change IPs without updating Telegraf config
+- ✅ Organize with labels (type, location, vendor)
+- ✅ Kubernetes-native resource management
+- ✅ Port configuration is optional
+
+**Documentation:**
+- **`examples/README-router-externalname.md`** - Complete guide ⭐
+- **`examples/values-with-routers.yaml`** - Full working example
 
 ## Custom Scripts
 
