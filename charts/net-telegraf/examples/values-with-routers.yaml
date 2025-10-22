@@ -1,21 +1,23 @@
-# Example: Using ExternalName Services for Router Monitoring
+# Example: Device Monitoring with Service + Endpoint
 # 
 # This example shows how to:
-# 1. Define routers as Kubernetes ExternalName services
-# 2. Monitor them with SNMP and ping
+# 1. Monitor devices using Service + Endpoint approach
+# 2. Works with both DNS names and IP addresses
 # 3. Store credentials securely
+#
+# All devices use Service + Endpoint for consistent behavior.
 #
 # Deploy with:
 #   kubectl create secret generic snmp-credentials --from-literal=community-string='your-snmp-community'
 #   helm install net-telegraf charts/net-telegraf -f examples/values-with-routers.yaml
 
-# Enable router ExternalName services
+# Enable router services and endpoints
 routers:
   enabled: true
   devices:
-    # Core Router 1 - Using IP address
+    # Core Router 1
     - name: router-core-1
-      externalName: 192.168.1.1
+      ip: 192.168.1.1
       labels:
         router-type: core
         location: datacenter-1
@@ -36,9 +38,9 @@ routers:
           port: 443
           protocol: TCP
     
-    # Edge Router 2 - Using DNS name
+    # Edge Router 2
     - name: router-edge-2
-      externalName: router2.company.com
+      ip: 192.168.1.2
       labels:
         router-type: edge
         location: datacenter-2
@@ -52,7 +54,7 @@ routers:
     
     # Branch Router 3
     - name: router-branch-3
-      externalName: 10.20.30.1
+      ip: 10.20.30.1
       labels:
         router-type: branch
         location: branch-office-ny
@@ -61,10 +63,17 @@ routers:
         environment: production
       annotations:
         description: "Branch office router - New York"
+      ports:
+        - name: snmp
+          port: 161
+          protocol: UDP
+        - name: ssh
+          port: 22
+          protocol: TCP
     
     # Distribution Switch
     - name: switch-dist-1
-      externalName: 192.168.1.10
+      ip: 192.168.1.10
       labels:
         device-type: switch
         switch-type: distribution
@@ -77,7 +86,7 @@ routers:
     
     # Firewall
     - name: firewall-perimeter
-      externalName: 192.168.100.1
+      ip: 192.168.100.1
       labels:
         device-type: firewall
         location: dmz
@@ -166,7 +175,7 @@ telegraf:
           count: 3
           ping_interval: 5.0
           timeout: 10.0
-          [inputs.ping.tags]
+          tags:
             monitoring_type: "reachability"
       
       # HTTP response check (for devices with web interface)
@@ -178,7 +187,7 @@ telegraf:
           method: "GET"
           follow_redirects: false
           insecure_skip_verify: true  # For self-signed certs
-          [inputs.http_response.tags]
+          tags:
             monitoring_type: "web_interface"
       
       # Standard system metrics from Telegraf pod itself

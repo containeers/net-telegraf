@@ -16,6 +16,7 @@ net-telegraf/
 │       │   ├── _helpers.tpl
 │       │   ├── NOTES.txt
 │       │   ├── configmap-scripts.yaml
+│       │   ├── service-endpoint-devices.yaml
 │       │   └── servicemonitor.yaml
 │       └── examples/
 │           ├── README-custom-scripts.md
@@ -233,10 +234,10 @@ The chart can be configured by overriding values in the `values.yaml` file. All 
 | `serviceMonitor.additionalLabels` | Additional labels for ServiceMonitor | `{}` |
 | `serviceMonitor.relabelings` | Relabel configs | `[]` |
 | `serviceMonitor.metricRelabelings` | Metric relabel configs | `[]` |
-| `routers.enabled` | Enable ExternalName services for routers | `false` |
+| `routers.enabled` | Enable Service + Endpoint for routers | `false` |
 | `routers.devices` | List of router/network device definitions | `[]` |
 | `routers.devices[].name` | Router service name (required) | - |
-| `routers.devices[].externalName` | Router IP or DNS name (required) | - |
+| `routers.devices[].ip` | Router IP address (required) | - |
 | `routers.devices[].labels` | Labels for the router service | `{}` |
 | `routers.devices[].annotations` | Annotations for the router service | `{}` |
 | `routers.devices[].ports` | Port definitions (optional, for documentation) | `[]` |
@@ -329,9 +330,9 @@ telegraf:
       cpu: 1000m
 ```
 
-## Router Management with ExternalName Services
+## Router Management with Service + Endpoint
 
-**NEW**: Monitor network devices (routers, switches, firewalls) using Kubernetes ExternalName services instead of hardcoding IP addresses.
+**NEW**: Monitor network devices (routers, switches, firewalls) using Kubernetes Service + Endpoint approach for consistent behavior with IP addresses.
 
 ### Quick Example
 
@@ -342,13 +343,13 @@ routers:
   enabled: true
   devices:
     - name: router-core-1
-      externalName: 192.168.1.1  # IP or DNS name
+      ip: 192.168.1.1
       labels:
         router-type: core
         location: datacenter-1
     
     - name: router-edge-2
-      externalName: router2.company.com
+      ip: 192.168.1.2
       labels:
         router-type: edge
         location: datacenter-2
@@ -368,14 +369,14 @@ telegraf:
 
 **Benefits:**
 - ✅ Use short names like `router-1` (Kubernetes ndots:5 auto-resolves)
+- ✅ Works with IP addresses directly
 - ✅ Change IPs without updating Telegraf config
 - ✅ Organize with labels (type, location, vendor)
 - ✅ Kubernetes-native resource management
-- ✅ Port configuration is optional
+- ✅ Consistent Service + Endpoint approach for all devices
 
 **Documentation:**
-- **`examples/README-router-externalname.md`** - Complete guide ⭐
-- **`examples/values-with-routers.yaml`** - Full working example
+- **`examples/values-with-routers.yaml`** - Complete working example ⭐
 
 ## Custom Scripts
 

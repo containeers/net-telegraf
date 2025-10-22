@@ -48,7 +48,7 @@ telegraf:
   volumes:
     - name: custom-scripts
       configMap:
-        name: my-telegraf-net-telegraf-scripts
+        name: net-telegraf-scripts
         defaultMode: 0755
   
   mountPoints:

@@ -1,0 +1,101 @@
+{{- if .Values.routers.enabled }}
+{{- range .Values.routers.devices }}
+{{- if .ip }}
+---
+# Service for device monitoring (works with both DNS names and IP addresses)
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  {{- with .labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  {{- with .ports }}
+  ports:
+  {{- range . }}
+  - name: {{ .name }}
+    port: {{ .port }}
+    targetPort: {{ .port }}
+    {{- with .protocol }}
+    protocol: {{ . }}
+    {{- end }}
+  {{- end }}
+  {{- else }}
+  # Default ports for common network device services
+  ports:
+  - name: snmp
+    port: 161
+    targetPort: 161
+    protocol: UDP
+  - name: ssh
+    port: 22
+    targetPort: 22
+    protocol: TCP
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+  {{- end }}
+  selector:
+    # This selector won't match any pods, but is required for Service
+    app.kubernetes.io/name: "external-device"
+    app.kubernetes.io/instance: "{{ .name }}"
+
+---
+# Endpoint for device monitoring (works with both DNS names and IP addresses)
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: {{ .name }}
+  {{- with .labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+subsets:
+- addresses:
+  - ip: {{ .ip }}
+  {{- with .ports }}
+  ports:
+  {{- range . }}
+  - name: {{ .name }}
+    port: {{ .port }}
+    {{- with .protocol }}
+    protocol: {{ . }}
+    {{- else }}
+    protocol: TCP
+    {{- end }}
+  {{- end }}
+  {{- else }}
+  # Default ports for common network device services
+  ports:
+  - name: snmp
+    port: 161
+    protocol: UDP
+  - name: ssh
+    port: 22
+    protocol: TCP
+  - name: http
+    port: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    protocol: TCP
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -6,60 +6,47 @@ This guide explains how to load custom parser, processor, or collector scripts i
 
 Since the Telegraf deployment is managed by the dependency chart (InfluxData's Telegraf chart), we use a ConfigMap to store custom scripts and mount them into the pods via `volumes` and `mountPoints`.
 
+**Note:** The volume mounting cannot be fully automated because this is an overlay chart. You need to add a simple volumes configuration block when enabling custom scripts (see Quick Start below).
+
 ## Quick Start
 
-### 1. Enable Custom Scripts
+### 1. Create Your Values File
 
-Create a values file with your custom scripts:
+All you need is 3 sections - scripts, volumes, and mountPoints:
 
 ```yaml
+# 1. Enable and define your scripts
 customScripts:
   enabled: true
-  mountPath: /etc/telegraf/scripts
   scripts:
-    my_parser.py: |
-      #!/usr/bin/env python3
-      # Your custom parser logic here
-      print("custom_metric value=1")
-```
+    my_script.sh: |
+      #!/bin/bash
+      echo "custom_metric value=1"
 
-### 2. Configure Volume Mounts
-
-Add the volume configuration to mount the scripts:
-
-```yaml
 telegraf:
-  # ... other telegraf config ...
+  config:
+    inputs:
+      - exec:
+          commands: ["/etc/telegraf/scripts/my_script.sh"]
+          data_format: "influx"
   
+  # 2. Add volumes (copy-paste, just change release name)
   volumes:
     - name: custom-scripts
       configMap:
-        name: RELEASE-NAME-net-telegraf-scripts  # Replace RELEASE-NAME
+        name: net-telegraf-scripts  # Pattern: <release-name>-scripts
         defaultMode: 0755
   
+  # 3. Add mount points (copy-paste as-is)
   mountPoints:
     - name: custom-scripts
       mountPath: /etc/telegraf/scripts
       readOnly: true
 ```
 
-**Important:** Replace `RELEASE-NAME` with your actual Helm release name. The ConfigMap name follows the pattern: `<release-name>-net-telegraf-scripts`
+**ConfigMap Naming:** The name follows the pattern `<release-name>-scripts`. If you install with `helm install net-telegraf`, use `net-telegraf-scripts`.
 
-### 3. Reference Scripts in Telegraf Config
-
-Use your scripts in Telegraf input plugins:
-
-```yaml
-telegraf:
-  config:
-    inputs:
-      - execd:
-          command:
-            - "/etc/telegraf/scripts/my_parser.py"
-          signal: "none"
-          restart_delay: "10s"
-          data_format: "influx"
-```
+**That's it!** The volumes and mountPoints blocks are the same for every installation, just update the ConfigMap name.
 
 ## Finding Your ConfigMap Name
 

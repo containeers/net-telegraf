@@ -108,22 +108,21 @@ telegraf:
     accessMode: ReadWriteOnce
     size: 8Gi
 
-  # Volumes to mount (for custom scripts)
-  # When customScripts.enabled is true, configure this to mount the scripts ConfigMap
-  # The ConfigMap name follows the pattern: <release-name>-net-telegraf-scripts
-  # You can use 'helm template' to see the actual name before deploying
-  volumes: []
+  # Volumes and mount points for custom scripts
+  # When customScripts.enabled=true, add the following:
+  # 
+  # volumes:
   #   - name: custom-scripts
   #     configMap:
-  #       name: my-release-net-telegraf-scripts
+  #       name: <release-name>-scripts  # e.g., net-telegraf-scripts
   #       defaultMode: 0755
-
-  # Mount points for volumes
-  # When customScripts.enabled is true, configure this to mount the scripts
-  mountPoints: []
+  # 
+  # mountPoints:
   #   - name: custom-scripts
   #     mountPath: /etc/telegraf/scripts
   #     readOnly: true
+  volumes: []
+  mountPoints: []
 
 # Custom scripts configuration
 # Use this to add custom parser scripts, exec scripts, or processor scripts
@@ -225,32 +224,43 @@ serviceMonitor:
   #   # - app
   #   # - environment
 
-# Router ExternalName Services
-# Create Kubernetes ExternalName services for network devices
+# Router Services and Endpoints
+# Create Kubernetes services for network device monitoring
+# 
+# All devices use Service + Endpoint approach for consistent behavior.
+# Works with both DNS names and IP addresses.
 routers:
   enabled: false
   
-  # Minimal configuration - only name and externalName required
+  # Device configuration
   devices: []
+    # Example 1: IP address
     # - name: router-1
-    #   externalName: 192.168.1.1
-    # 
-    # - name: router-2
-    #   externalName: router2.company.com
+    #   ip: 192.168.1.1
     #   labels:
     #     location: datacenter-1
     #     vendor: cisco
-    # 
-    # - name: router-3
-    #   externalName: 10.20.1.1
-    #   labels:
-    #     location: branch-office
-    #   annotations:
-    #     description: "Branch router"
-    #   ports:  # Optional - for documentation only
+    #   ports:
     #     - name: snmp
     #       port: 161
     #       protocol: UDP
+    #     - name: ssh
+    #       port: 22
+    #       protocol: TCP
+    #
+    # Example 2: Another IP address
+    # - name: router-2
+    #   ip: 192.168.1.2
+    #   labels:
+    #     location: datacenter-1
+    #     vendor: cisco
+    #   ports:
+    #     - name: snmp
+    #       port: 161
+    #       protocol: UDP
+    #     - name: ssh
+    #       port: 22
+    #       protocol: TCP
 
 # Name overrides
 nameOverride: ""
