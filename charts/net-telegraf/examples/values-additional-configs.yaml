@@ -1,0 +1,60 @@
+# Example: Additional Telegraf Configurations
+# This example shows how to add custom TOML configuration files to Telegraf
+
+telegraf:
+  # Mount the additional ConfigMap
+  volumes:
+    - name: additional-configs
+      configMap:
+        name: net-telegraf-additional-configs
+  
+  mountPoints:
+    - name: additional-configs
+      mountPath: /etc/telegraf/conf.d
+      readOnly: true
+
+  # Add --config argument to load additional configs
+  args:
+    - "--config"
+    - "/etc/telegraf/conf.d"
+
+# Additional Telegraf ConfigMaps for custom TOML configurations
+additionalConfigs:
+  enabled: true
+  
+  # Mount path for additional configs (default: /etc/telegraf/conf.d)
+  mountPath: /etc/telegraf/conf.d
+  
+  # Custom TOML configuration files
+  configs:
+    # Custom input plugins
+    custom-inputs.toml: |
+      [[inputs.ping]]
+        urls = ["8.8.8.8", "1.1.1.1"]
+        count = 4
+        ping_interval = 10.0
+        timeout = 5.0
+    
+    # Custom output plugins
+    custom-outputs.toml: |
+      [[outputs.file]]
+        files = ["/tmp/metrics.out"]
+        data_format = "influx"
+    
+    # Custom processors
+    custom-processors.toml: |
+      [[processors.regex]]
+        [[processors.regex.tags]]
+          key = "hostname"
+          pattern = "^(.*)-.*$"
+          replacement = "${1}"
+    
+    # Custom aggregators
+    custom-aggregators.toml: |
+      [[aggregators.basicstats]]
+        period = "30s"
+        drop_original = false
+
+# Enable ServiceMonitor for Prometheus
+serviceMonitor:
+  enabled: true

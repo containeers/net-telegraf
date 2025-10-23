@@ -226,6 +226,12 @@ The chart can be configured by overriding values in the `values.yaml` file. All 
 | `telegraf.resources.requests.cpu` | CPU request | `100m` |
 | `telegraf.resources.limits.memory` | Memory limit | `512Mi` |
 | `telegraf.resources.limits.cpu` | CPU limit | `500m` |
+| `telegraf.podAnnotations` | Pod annotations (injected into dependency chart) | `{}` |
+| `telegraf.podLabels` | Pod labels (injected into dependency chart) | `{}` |
+| `telegraf.args` | Additional container arguments (injected into dependency chart) | `[]` |
+| `additionalConfigs.enabled` | Enable additional Telegraf ConfigMaps | `false` |
+| `additionalConfigs.mountPath` | Mount path for additional configs | `/etc/telegraf/conf.d` |
+| `additionalConfigs.configs` | Map of TOML config filenames to content | `{}` |
 | `telegraf.service.enabled` | Enable service | `true` |
 | `telegraf.service.type` | Service type | `ClusterIP` |
 | `serviceMonitor.enabled` | Enable ServiceMonitor for Prometheus Operator | `false` |
@@ -317,6 +323,31 @@ telegraf:
       flush_interval: "30s"
 ```
 
+### Example: Dependency Chart Injection
+
+Inject custom configurations into the dependency chart:
+
+```yaml
+telegraf:
+  # Pod annotations (injected into dependency chart)
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9273"
+    prometheus.io/path: "/metrics"
+    custom.annotation: "value"
+  
+  # Pod labels (injected into dependency chart)
+  podLabels:
+    monitoring: "enabled"
+    environment: "production"
+    team: "platform"
+  
+  # Additional container arguments (injected into dependency chart)
+  args:
+    - "--debug"
+    - "--config-dir=/etc/telegraf/conf.d"
+```
+
 ### Example: Resource Limits
 
 ```yaml
@@ -377,6 +408,75 @@ telegraf:
 
 **Documentation:**
 - **`examples/values-with-routers.yaml`** - Complete working example ⭐
+- **`examples/values-additional-configs.yaml`** - Additional Telegraf configurations
+
+## Additional Telegraf Configurations
+
+Load additional TOML configuration files into your Telegraf deployment. This feature enables:
+- Custom input plugin configurations
+- Additional output plugin configurations
+- Processor configurations
+- Aggregator configurations
+- Custom Telegraf settings
+
+### Quick Example
+
+```yaml
+telegraf:
+  # Mount the additional ConfigMap
+  volumes:
+    - name: additional-configs
+      configMap:
+        name: net-telegraf-additional-configs
+  
+  mountPoints:
+    - name: additional-configs
+      mountPath: /etc/telegraf/conf.d
+      readOnly: true
+
+  # Add --config argument to load additional configs
+  args:
+    - "--config"
+    - "/etc/telegraf/conf.d"
+
+# Additional Telegraf ConfigMaps for custom TOML configurations
+additionalConfigs:
+  enabled: true
+  mountPath: /etc/telegraf/conf.d
+  configs:
+    # Custom input plugins
+    custom-inputs.toml: |
+      [[inputs.ping]]
+        urls = ["8.8.8.8", "1.1.1.1"]
+        count = 4
+        ping_interval = 10.0
+    
+    # Custom output plugins
+    custom-outputs.toml: |
+      [[outputs.file]]
+        files = ["/tmp/metrics.out"]
+        data_format = "influx"
+    
+    # Custom processors
+    custom-processors.toml: |
+      [[processors.regex]]
+        [[processors.regex.tags]]
+          key = "hostname"
+          pattern = "^(.*)-.*$"
+          replacement = "${1}"
+```
+
+**Important:** The ConfigMap name follows the pattern `<release-name>-additional-configs`. For example:
+- Release name: `my-telegraf` → ConfigMap: `my-telegraf-additional-configs`
+- Release name: `net-telegraf` → ConfigMap: `net-telegraf-additional-configs`
+
+**Note:** Don't forget to add the `--config` argument to `telegraf.args` to tell Telegraf to load configurations from the mounted directory:
+```yaml
+telegraf:
+  args:
+    - "--config"
+    - "/etc/telegraf/conf.d"
+```
 
 ## Custom Scripts
 

@@ -1,0 +1,17 @@
+{{- if .Values.additionalConfigs.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "net-telegraf.fullname" . }}-additional-configs
+  labels:
+    {{- include "net-telegraf.labels" . | nindent 4 }}
+  {{- with .Values.additionalConfigs.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+data:
+  {{- range $name, $content := .Values.additionalConfigs.configs }}
+  {{ $name }}: |
+{{- $content | nindent 4 }}
+  {{- end }}
+{{- end }}

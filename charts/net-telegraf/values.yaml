@@ -65,6 +65,13 @@ telegraf:
         fieldRef:
           fieldPath: spec.nodeName
 
+  # Additional container arguments (injected into dependency chart)
+  args: []
+    # Example: Add custom arguments
+    # - "--debug"
+    # - "--config"
+    # - "/etc/telegraf/conf.d"  # Load additional configs from directory
+
   # Resource limits
   resources:
     requests:
@@ -108,21 +115,61 @@ telegraf:
     accessMode: ReadWriteOnce
     size: 8Gi
 
-  # Volumes and mount points for custom scripts
-  # When customScripts.enabled=true, add the following:
+  # Volumes and mount points for custom scripts and additional configs
+  # When customScripts.enabled=true or additionalConfigs.enabled=true, add the following:
   # 
   # volumes:
   #   - name: custom-scripts
   #     configMap:
   #       name: <release-name>-scripts  # e.g., net-telegraf-scripts
   #       defaultMode: 0755
+  #   - name: additional-configs
+  #     configMap:
+  #       name: <release-name>-additional-configs
   # 
   # mountPoints:
   #   - name: custom-scripts
   #     mountPath: /etc/telegraf/scripts
   #     readOnly: true
+  #   - name: additional-configs
+  #     mountPath: /etc/telegraf/conf.d
+  #     readOnly: true
   volumes: []
   mountPoints: []
+
+# Additional Telegraf ConfigMaps for custom TOML configurations
+additionalConfigs:
+  enabled: false
+  
+  # Annotations for the additional ConfigMap
+  annotations: {}
+  
+  # Mount path for additional configs in the container
+  mountPath: /etc/telegraf/conf.d
+  
+  # Additional TOML configuration files
+  # Key is the filename, value is the TOML content
+  configs: {}
+    # Example: Custom input plugin configuration
+    # custom-inputs.toml: |
+    #   [[inputs.ping]]
+    #     urls = ["8.8.8.8", "1.1.1.1"]
+    #     count = 4
+    #     ping_interval = 10.0
+    # 
+    #   [[inputs.http_response]]
+    #     urls = ["https://example.com"]
+    #     response_timeout = "5s"
+    # 
+    # Example: Custom output plugin configuration
+    # custom-outputs.toml: |
+    #   [[outputs.file]]
+    #     files = ["/tmp/metrics.out"]
+    #     data_format = "influx"
+    #
+    # Note: To load these configs, add to telegraf.args:
+    # - "--config"
+    # - "/etc/telegraf/conf.d"
 
 # Custom scripts configuration
 # Use this to add custom parser scripts, exec scripts, or processor scripts
